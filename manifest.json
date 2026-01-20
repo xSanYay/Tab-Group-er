@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "Local AI Tab Grouper",
+  "version": "1.0",
+  "description": "Auto-group your tabs",
+  "permissions": ["tabs", "tabGroups"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Tab Grouper"
+  }
+}
