@@ -1,70 +1,107 @@
-const SYSTEM_PROMPT = `You are a tab organizer.
-Categorize these tabs into groups. 
-Return ONLY valid JSON with format: {"GroupName": [id1, id2]} where ids are numbers. 
-No markdown, no code blocks, just pure JSON and only JSON.`;
+const DEFAULT_LABELS = ['Work', 'Social', 'Entertainment', 'Shopping', 'News', 'Finance', 'Development'];
+
+let worker = null;
+let currentGroups = {};
+
+function getWorker() {
+  if (!worker) {
+    worker = new Worker('worker.js', { type: 'module' });
+  }
+  return worker;
+}
+
+function setStatus(text, type = '') {
+  const status = document.getElementById('status');
+  status.innerText = text;
+  status.className = type;
+}
+
+function renderEditView(groups) {
+  const container = document.getElementById('edit-container');
+  container.innerHTML = '';
+  container.style.display = 'block';
+  
+  Object.entries(groups).forEach(([name, tabs]) => {
+    if (tabs.length === 0) return;
+    
+    const groupDiv = document.createElement('div');
+    groupDiv.className = 'group-item';
+    
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.value = name;
+    input.className = 'group-name-input';
+    input.dataset.originalName = name;
+    
+    const list = document.createElement('ul');
+    list.className = 'tab-list';
+    tabs.forEach(tab => {
+      const li = document.createElement('li');
+      li.textContent = tab.title || 'Untitled';
+      li.title = tab.title;
+      list.appendChild(li);
+    });
+    
+    groupDiv.appendChild(input);
+    groupDiv.appendChild(list);
+    container.appendChild(groupDiv);
+  });
+  
+  document.getElementById('doneBtn').style.display = 'block';
+  document.getElementById('groupBtn').style.display = 'none';
+}
+
+async function applyGroups() {
+  const container = document.getElementById('edit-container');
+  const inputs = container.querySelectorAll('.group-name-input');
+  
+  const renamedGroups = {};
+  inputs.forEach(input => {
+    const originalName = input.dataset.originalName;
+    const newName = input.value.trim() || originalName;
+    renamedGroups[newName] = currentGroups[originalName];
+  });
+  
+  let groupedCount = 0;
+  for (const [name, tabs] of Object.entries(renamedGroups)) {
+    if (tabs && tabs.length > 0) {
+      const ids = tabs.map(t => t.id);
+      const groupId = await chrome.tabs.group({ tabIds: ids });
+      await chrome.tabGroups.update(groupId, { title: name });
+      groupedCount += ids.length;
+    }
+  }
+  
+  setStatus(`Organized ${groupedCount} tabs into ${Object.keys(renamedGroups).length} groups`, 'success');
+  document.getElementById('edit-container').style.display = 'none';
+  document.getElementById('doneBtn').style.display = 'none';
+  document.getElementById('groupBtn').style.display = 'block';
+}
 
 document.getElementById('groupBtn').addEventListener('click', async () => {
-  console.log("Popup script started (v2)"); 
-  const status = document.getElementById('status');
+  setStatus('Fetching tabs...', 'loading');
   
-  // Use window.ai explicitly to avoid ReferenceError
-  if (!window.ai) {
-    status.innerText = "Global 'ai' object not found. Please enable chrome://flags/#prompt-api-for-gemini-nano";
-    status.className = 'error';
-    return;
-  }
-
-  // 1. Check capabilities and readiness
-  const capabilities = await window.ai.languageModel.capabilities();
+  const tabs = await chrome.tabs.query({ currentWindow: true });
+  const tabData = tabs.map(t => ({ id: t.id, title: t.title, url: t.url }));
   
-  if (capabilities.available === 'no') {
-    status.innerText = "Local AI not available on this device.";
-    status.className = 'error';
-    return;
-  }
+  const w = getWorker();
   
-  if (capabilities.available === 'after-download') {
-    status.innerText = "Downloading AI model... (check chrome://components)";
-    status.className = 'loading';
-  } else {
-    status.innerText = "AI is thinking locally...";
-    status.className = 'loading';
-  }
-
-  try {
-    // 2. Get current tabs
-    const tabs = await chrome.tabs.query({ currentWindow: true });
-    const tabData = tabs.map(t => ({ id: t.id, title: t.title }));
-
-    // 3. Initialize a session with a system prompt
-    const session = await window.ai.languageModel.create({
-      systemPrompt: SYSTEM_PROMPT
-    });
-
-    // 4. Prompt the model
-    const response = await session.prompt(`Group these tabs: ${JSON.stringify(tabData)}`);
+  w.onmessage = (e) => {
+    const { type, message, groups } = e.data;
     
-    // Clean up the response (sometimes AI wraps JSON in backticks)
-    const cleanedResponse = response.replace(/```json|```/g, '').trim();
-    const groups = JSON.parse(cleanedResponse);
-
-    // 5. Execute the grouping in Chrome
-    let groupedCount = 0;
-    for (const [groupName, tabIds] of Object.entries(groups)) {
-      if (tabIds.length > 0) {
-        const numericIds = tabIds.map(id => typeof id === 'string' ? parseInt(id) : id);
-        const groupId = await chrome.tabs.group({ tabIds: numericIds });
-        await chrome.tabGroups.update(groupId, { title: groupName });
-        groupedCount += numericIds.length;
-      }
+    if (type === 'progress') {
+      setStatus(message, 'loading');
+    } else if (type === 'complete') {
+      currentGroups = groups;
+      setStatus('Review and edit groups below:', 'success');
+      renderEditView(groups);
+    } else if (type === 'error') {
+      setStatus('Error: ' + message, 'error');
     }
-    
-    session.destroy(); // Free up memory
-    status.innerText = `Organized ${groupedCount} tabs into ${Object.keys(groups).length} groups!`;
-    status.className = 'success';
-  } catch (err) {
-    status.innerText = "Error: " + err.message;
-    status.className = 'error';
-    console.error(err);
-  }
+  };
+  
+  w.postMessage({ tabs: tabData, labels: DEFAULT_LABELS });
 });
+
+document.getElementById('doneBtn').addEventListener('click', applyGroups);
+

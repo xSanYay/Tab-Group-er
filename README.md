@@ -1,31 +1,29 @@
 # Tab-Group-er
 
-Auto-group your Chrome tabs using local Gemini Nano AI. Completely private, offline, and zero-cost.
+Auto-group your Chrome tabs using local AI with Transformers.js. Runs entirely in-browser using WebAssembly. Private, works on stable Chrome.
 
-## 1. Enable Chrome's AI Engine
+## How It Works
 
-Before the extension can communicate with Gemini Nano, you must enable the experimental APIs:
+Uses zero-shot classification to categorize tabs into groups like Work, Social, Entertainment, etc. The AI model runs locally in a Web Worker, so your tab data never leaves your browser.
 
-### Flags
-1. Go to `chrome://flags`
-2. Enable **#optimization-guide-on-device-model** (Set to *Enabled BypassPerfRequirement*)
-3. Enable **#prompt-api-for-gemini-nano** (Set to *Enabled*)
-4. Relaunch Chrome
-
-### Components
-1. Go to `chrome://components`
-2. Find **Optimization Guide On Device Model**
-3. Click **Check for update** and wait for the download to finish (~1.5GB)
-
-## 2. Installation
+## Installation
 
 1. Open Chrome and navigate to `chrome://extensions/`
 2. Enable **Developer mode** (toggle in the top right)
 3. Click **Load unpacked**
 4. Select the root folder of this repository
 
+## Usage
+
+1. Click the extension icon
+2. Click "Group Tabs with AI"
+3. Wait for the model to load (first run downloads ~40MB)
+4. Review and edit the suggested group names
+5. Click "Apply Groups" to organize your tabs
+
 ## Project Structure
 
 - `manifest.json` — Extension configuration and permissions
 - `popup.html` — The user interface
-- `popup.js` — The logic for collecting tabs and calling the `window.ai` API.
+- `popup.js` — UI logic and Chrome tabs API integration
+- `worker.js` — Web Worker running Transformers.js for classification
