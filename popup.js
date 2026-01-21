@@ -1,13 +1,24 @@
 const DEFAULT_LABELS = ['Work', 'Social', 'Entertainment', 'Shopping', 'News', 'Finance', 'Development'];
 
-let worker = null;
+let classifier = null;
 let currentGroups = {};
 
-function getWorker() {
-  if (!worker) {
-    worker = new Worker('worker.js');
+async function loadTransformers() {
+  if (!window.transformers) {
+    const script = document.createElement('script');
+    script.src = 'transformers.min.js';
+    await new Promise((resolve, reject) => {
+      script.onload = resolve;
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
   }
-  return worker;
+  
+  if (!classifier) {
+    const { pipeline } = window.transformers;
+    classifier = await pipeline('zero-shot-classification', 'Xenova/mobilebert-uncased-mnli');
+  }
+  return classifier;
 }
 
 function setStatus(text, type = '') {
@@ -79,29 +90,32 @@ async function applyGroups() {
 }
 
 document.getElementById('groupBtn').addEventListener('click', async () => {
-  setStatus('Fetching tabs...', 'loading');
+  setStatus('Loading AI model...', 'loading');
   
-  const tabs = await chrome.tabs.query({ currentWindow: true });
-  const tabData = tabs.map(t => ({ id: t.id, title: t.title, url: t.url }));
-  
-  const w = getWorker();
-  
-  w.onmessage = (e) => {
-    const { type, message, groups } = e.data;
+  try {
+    const tabs = await chrome.tabs.query({ currentWindow: true });
+    const clf = await loadTransformers();
     
-    if (type === 'progress') {
-      setStatus(message, 'loading');
-    } else if (type === 'complete') {
-      currentGroups = groups;
-      setStatus('Review and edit groups below:', 'success');
-      renderEditView(groups);
-    } else if (type === 'error') {
-      setStatus('Error: ' + message, 'error');
+    setStatus('Classifying tabs...', 'loading');
+    
+    const groups = {};
+    for (const tab of tabs) {
+      const text = `${tab.title} ${tab.url}`;
+      const result = await clf(text, DEFAULT_LABELS);
+      const category = result.labels[0];
+      
+      if (!groups[category]) {
+        groups[category] = [];
+      }
+      groups[category].push({ id: tab.id, title: tab.title, url: tab.url });
     }
-  };
-  
-  w.postMessage({ tabs: tabData, labels: DEFAULT_LABELS });
+    
+    currentGroups = groups;
+    setStatus('Review and edit groups below:', 'success');
+    renderEditView(groups);
+  } catch (error) {
+    setStatus('Error: ' + error.message, 'error');
+  }
 });
 
 document.getElementById('doneBtn').addEventListener('click', applyGroups);
-
