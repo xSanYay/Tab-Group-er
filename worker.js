@@ -1,5 +1,6 @@
-import { pipeline, env } from 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0';
+importScripts('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0');
 
+const { pipeline, env } = transformers;
 env.allowLocalModels = false;
 
 let classifier = null;

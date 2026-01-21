@@ -5,7 +5,7 @@ let currentGroups = {};
 
 function getWorker() {
   if (!worker) {
-    worker = new Worker('worker.js', { type: 'module' });
+    worker = new Worker('worker.js');
   }
   return worker;
 }
