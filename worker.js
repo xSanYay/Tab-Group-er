@@ -1,4 +1,4 @@
-importScripts('https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.0.0');
+importScripts('transformers.min.js');
 
 const { pipeline, env } = transformers;
 env.allowLocalModels = false;
