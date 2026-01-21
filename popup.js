@@ -4,18 +4,32 @@ Return ONLY valid JSON with format: {"GroupName": [id1, id2]} where ids are numb
 No markdown, no code blocks, just pure JSON and only JSON.`;
 
 document.getElementById('groupBtn').addEventListener('click', async () => {
+  console.log("Popup script started (v2)"); 
   const status = document.getElementById('status');
-
-  // 1. Check if the local model is ready
-  const capabilities = await ai.languageModel.capabilities();
-  if (capabilities.available === 'no') {
-    status.innerText = "Local AI not available. Check chrome://flags.";
+  
+  // Use window.ai explicitly to avoid ReferenceError
+  if (!window.ai) {
+    status.innerText = "Global 'ai' object not found. Please enable chrome://flags/#prompt-api-for-gemini-nano";
     status.className = 'error';
     return;
   }
 
-  status.innerText = "AI is thinking locally...";
-  status.className = 'loading';
+  // 1. Check capabilities and readiness
+  const capabilities = await window.ai.languageModel.capabilities();
+  
+  if (capabilities.available === 'no') {
+    status.innerText = "Local AI not available on this device.";
+    status.className = 'error';
+    return;
+  }
+  
+  if (capabilities.available === 'after-download') {
+    status.innerText = "Downloading AI model... (check chrome://components)";
+    status.className = 'loading';
+  } else {
+    status.innerText = "AI is thinking locally...";
+    status.className = 'loading';
+  }
 
   try {
     // 2. Get current tabs
@@ -23,7 +37,7 @@ document.getElementById('groupBtn').addEventListener('click', async () => {
     const tabData = tabs.map(t => ({ id: t.id, title: t.title }));
 
     // 3. Initialize a session with a system prompt
-    const session = await ai.languageModel.create({
+    const session = await window.ai.languageModel.create({
       systemPrompt: SYSTEM_PROMPT
     });
 
