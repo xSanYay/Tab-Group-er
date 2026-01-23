@@ -96,7 +96,16 @@
 </head>
 <body>
   <h1>Tab Grouper</h1>
-  <button id="groupBtn">Group Tabs with AI</button>
+  <div class="button-container">
+    <button id="groupBtn">Group Tabs with AI</button>
+    <button id="duplicateBtn" style="margin-top: 8px; background: #5f6368;">Group Duplicate Tabs</button>
+  </div>
+  
+  <div id="options-container" style="margin-top: 12px; padding: 10px; background: white; border-radius: 4px; border: 1px solid #ddd;">
+    <label style="font-size: 12px; font-weight: 500; color: #666; display: block; margin-bottom: 4px;">AI Categories (comma separated):</label>
+    <textarea id="labelsInput" style="width: 100%; height: 60px; border: 1px solid #ddd; border-radius: 4px; font-size: 12px; font-family: inherit; box-sizing: border-box; resize: none; padding: 4px;"></textarea>
+  </div>
+
   <div id="status">Ready. Click to organize.</div>
   <div id="edit-container"></div>
   <button id="doneBtn">Apply Groups</button>
